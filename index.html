@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Print Portal</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            color: #333;
+        }
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+        header h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        h2 {
+            text-align: center;
+            color: #444;
+            margin-top: 0;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: block;
+            color: #555;
+        }
+        select, input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border 0.3s;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #5a6fd8;
+        }
+        button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-style: italic;
+            margin-top: 10px;
+        }
+        .error {
+            color: #e74c3c;
+            background-color: #fdf2f2;
+            border: 1px solid #f5c6cb;
+        }
+        .success {
+            color: #27ae60;
+            background-color: #f2fff8;
+            border: 1px solid #c3e6cb;
+        }
+        @media (max-width: 480px) {
+            .form-container {
+                padding: 20px;
+            }
+            header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Print Portal</h1>
+    </header>
+    <main>
+        <div class="form-container">
+            <h2>Search Information</h2>
+            <form id="searchForm">
+                <label for="type">Select Type:</label>
+                <select id="type" name="type" required>
+                    <option value="">-- Select --</option>
+                    <option value="phone">Phone Number</option>
+                    <option value="aadhaar">Aadhaar Number</option>
+                    <option value="gst">GST Number</option>
+                    <option value="upi">UPI ID</option>
+                    <option value="ifsc">IFSC Code</option>
+                    <option value="pincode">Pincode</option>
+                    <option value="vehicle">Vehicle Registration Number</option>
+                </select>
+
+                <label for="inputValue">Enter Value:</label>
+                <input type="text" id="inputValue" name="inputValue" placeholder="e.g. 9876543210" required />
+
+                <button type="submit" id="submitBtn">Submit</button>
+            </form>
+
+            <div id="loading" class="loading" style="display: none;">Searching...</div>
+            <div id="result" class="result-box"></div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = 'https://veerulookup.onrender.com';
+
+        const form = document.getElementById('searchForm');
+        const typeSelect = document.getElementById('type');
+        const inputValue = document.getElementById('inputValue');
+        const resultBox = document.getElementById('result');
+        const loading = document.getElementById('loading');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Input placeholders based on type
+        const placeholders = {
+            phone: 'e.g. 9876543210',
+            aadhaar: 'e.g. 123456789012',
+            gst: 'e.g. 22AAAAA0000A1Z5',
+            upi: 'e.g. example@oksbi',
+            ifsc: 'e.g. SBIN0001234',
+            pincode: 'e.g. 110001',
+            vehicle: 'e.g. DL01AA1234'
+        };
+
+        typeSelect.addEventListener('change', () => {
+            const type = typeSelect.value;
+            inputValue.placeholder = placeholders[type] || 'Enter value';
+            inputValue.value = '';
+            resultBox.style.display = 'none';
+            resultBox.className = 'result-box';
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const type = typeSelect.value;
+            const value = inputValue.value.trim();
+
+            if (!type || !value) return;
+
+            // Basic validation
+            if (!validateInput(type, value)) {
+                showResult('Invalid input format!', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            let url = '';
+            switch(type) {
+                case 'phone': url = `${API_BASE}/search_phone?number=${value}`; break;
+                case 'aadhaar': url = `${API_BASE}/search_aadhaar?aadhaar=${value}`; break;
+                case 'gst': url = `${API_BASE}/search_gst?gst=${value}`; break;
+                case 'upi': url = `${API_BASE}/search_upi?upi=${value}`; break;
+                case 'ifsc': url = `${API_BASE}/search_ifsc?ifsc=${value}`; break;
+                case 'pincode': url = `${API_BASE}/search_pincode?pincode=${value}`; break;
+                case 'vehicle': url = `${API_BASE}/search_vehicle?rc=${value}`; break;
+            }
+
+            try {
+                const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+                
+                if (!response.ok) {
+                    throw new Error(`Server Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayResult(data, type);
+            } catch (error) {
+                console.error('Fetch error:', error);
+                const msg = error.name === 'TimeoutError' 
+                    ? 'Request timed out. Please try again.' 
+                    : error.message.includes('Failed to fetch') 
+                    ? 'Network error. Check your connection.' 
+                    : 'Failed to fetch data. Try again later.';
+                showResult(msg, 'error');
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        function validateInput(type, value) {
+            const patterns = {
+                phone: /^\d{10}$/,
+                aadhaar: /^\d{12}$/,
+                gst: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+                upi: /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,}$/,
+                ifsc: /^[A-Z]{4}0[A-Z0-9]{6}$/,
+                pincode: /^\d{6}$/,
+                vehicle: /^[A-Z]{2}[0-9]{1,2}[A-Z]{0,2}[0-9]{1,4}$/
+            };
+            return patterns[type] ? patterns[type].test(value) : true;
+        }
+
+        function displayResult(data, type) {
+            let html = '<strong>Result:</strong>\n\n';
+            if (data && typeof data === 'object') {
+                // Pretty print with labels
+                const labels = {
+                    phone: { name: 'Name', operator: 'Operator', circle: 'Circle' },
+                    aadhaar: { name: 'Name', address: 'Address' },
+                    gst: { legal_name: 'Legal Name', address: 'Address' },
+                    upi: { name: 'Name', bank: 'Bank' },
+                    ifsc: { bank: 'Bank', branch: 'Branch', address: 'Address' },
+                    pincode: { post_office: 'Post Office', district: 'District', state: 'State' },
+                    vehicle: { owner: 'Owner', model: 'Model', fuel: 'Fuel' }
+                };
+
+                const map = labels[type] || {};
+                for (const [key, label] of Object.entries(map)) {
+                    if (data[key] !== undefined) {
+                        html += `<strong>${label}:</strong> ${data[key]}\n`;
+                    }
+                }
+                // Fallback: show raw if no mapping
+                if (html === '<strong>Result:</strong>\n\n') {
+                    html += JSON.stringify(data, null, 2);
+                }
+            } else {
+                html += data || 'No data found.';
+            }
+            showResult(html, 'success');
+        }
+
+        function showResult(message, type) {
+            resultBox.innerHTML = message;
+            resultBox.className = `result-box ${type}`;
+            resultBox.style.display = 'block';
+        }
+
+        function showLoading(show) {
+            loading.style.display = show ? 'block' : 'none';
+            submitBtn.disabled = show;
+            submitBtn.textContent = show ? 'Searching...' : 'Submit';
+        }
+    </script>
+</body>
+</html>
